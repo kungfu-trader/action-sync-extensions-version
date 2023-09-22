@@ -1,0 +1,20 @@
+name: "Action Sync Extensions Version"
+author: "xcvdsfd"
+description: "sync extensions version info to airtable"
+inputs:
+  token:
+    description: "Github token. E.g. secrets.GITHUB_TOKEN"
+    require: true
+  apiKey:
+    description: "Airtable Authentication Token"
+    require: true
+  airtable_ext_baseid:
+    description: "airtable_ext_baseid"
+    default: "appiIKDIDD1CSLQgx"
+  airtable_ext_tableid:
+    description: "airtable_ext_tableid"
+    default: "tbl5YM7NkZz6SFQM0"
+
+runs:
+  using: "node20"
+  main: "dist/index.js"
