@@ -28586,6 +28586,9 @@ const refreshExtTableRecords = async (argv, extensions, version) => {
     }
 };
 const refreshRepoTablerecords = async (argv, result) => {
+    if (result.length === 0) {
+        return;
+    }
     const records = await getTableRecords({
         apiKey: argv.apiKey,
         baseId: argv.baseId,

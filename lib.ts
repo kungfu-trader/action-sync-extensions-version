@@ -15,15 +15,34 @@ export interface Argv {
   extTableId: string;
 }
 
-type Record = {
+type ReposModel = {
   id?: string;
-  [key: string]: any;
+  Created?: string;
+  extensions: string[];
+  repo: string;
+};
+
+type RepoExtensionsModel = {
+  id?: string;
+  Created?: string;
+  name: string;
+  currentVersion: string;
+  latestVersion: string;
 };
 
 type RecordModel = {
-  fields: { [key: string]: any };
+  fields: ReposModel | RepoExtensionsModel;
   id?: string;
   Created?: string;
+};
+
+type AirtableApi = {
+  apiKey: string;
+  baseId: string;
+  tableId?: string;
+  tableName?: string;
+  records?: RecordModel[];
+  params?: { [key: string]: string | number };
 };
 
 const DEFAULT_FIELDS = [
@@ -56,7 +75,7 @@ export const checkExtensions = async (argv: Argv) => {
   }
   if (result.length > 0) {
     await refreshExtTableRecords(argv, extensions, currentVersion);
-    await refreshRepoTablerecords(argv, result as any);
+    await refreshRepoTablerecords(argv, result);
   }
 };
 
@@ -71,7 +90,7 @@ export const checkConsumers = async (argv: Argv) => {
   if (!records) {
     return;
   }
-  const repos = records.reduce((acc: Set<string>, cur: Record) => {
+  const repos = records.reduce((acc: Set<string>, cur: ReposModel) => {
     packages.some((v: string) => cur.extensions.includes(v)) &&
       acc.add(cur.repo);
     return acc;
@@ -83,11 +102,11 @@ export const checkConsumers = async (argv: Argv) => {
       tableId: repo,
     });
     const items = packages.reduce((acc: RecordModel[], cur: string) => {
-      const target = repoRecords.find((v: Record) => v.name === cur);
+      const target = repoRecords.find((v: RepoExtensionsModel) => v.name === cur);
       if (target && isHitVersion(target.currentVersion, version)) {
         acc.push({
           fields: {
-            ...omit(target, ["Created", "id"]),
+            ...omit(target, ["Created", "id"]) as RepoExtensionsModel,
             latestVersion: version,
           },
           id: target.id,
@@ -137,10 +156,10 @@ const getVersionList = async (
   )?.name;
   return latestVersion
     ? {
-        latestVersion,
-        currentVersion: version,
-        name,
-      }
+      latestVersion,
+      currentVersion: version,
+      name,
+    }
     : await getVersionList(octokit, name, version, page + 1);
 };
 
@@ -183,7 +202,7 @@ const refreshExtTableRecords = async (
     baseId: argv.baseId,
     tableId: argv.extTableId,
   });
-  const target = records.find((v: Record) => v.repo === argv.repo);
+  const target = records.find((v: ReposModel) => v.repo === argv.repo);
   const fields = {
     repo: argv.repo,
     extensions: [...extensions.keys()],
@@ -206,7 +225,10 @@ const refreshExtTableRecords = async (
   }
 };
 
-const refreshRepoTablerecords = async (argv: Argv, result: Array<Record>) => {
+const refreshRepoTablerecords = async (argv: Argv, result: Array<RepoExtensionsModel>) => {
+  if (result.length === 0) {
+    return;
+  }
   const records = await getTableRecords({
     apiKey: argv.apiKey,
     baseId: argv.baseId,
@@ -238,15 +260,6 @@ const refreshRepoTablerecords = async (argv: Argv, result: Array<Record>) => {
   });
 };
 
-type AirtableApi = {
-  apiKey: string;
-  baseId: string;
-  tableId?: string;
-  tableName?: string;
-  records?: RecordModel[];
-  params?: { [key: string]: string | number };
-};
-
 const getTableRecords = async ({
   apiKey,
   baseId,
@@ -273,21 +286,21 @@ const getTableRecords = async ({
     }))
     .catch((e) => console.error(e.response.data.error));
   if (!res) {
-    return;
+    return [];
   }
   return res.offset
     ? [
-        ...res.data,
-        ...(await getTableRecords({
-          apiKey,
-          baseId,
-          tableId,
-          params: {
-            ...params,
-            offset: res.offset,
-          },
-        })),
-      ]
+      ...res.data,
+      ...(await getTableRecords({
+        apiKey,
+        baseId,
+        tableId,
+        params: {
+          ...params,
+          offset: res.offset,
+        },
+      })),
+    ]
     : res.data;
 };
 
@@ -379,7 +392,7 @@ const createTable = ({ apiKey, baseId, tableName }: AirtableApi) => {
     .catch((e) => console.error(e.response.data.error));
 };
 
-const getPkgNameMap = () => {
+const getPkgNameMap = (): string[] => {
   const cwd = process.cwd();
   const hasLerna = fs.existsSync(path.join(cwd, "lerna.json"));
   const config = getPkgConfig(cwd, hasLerna ? "lerna.json" : "package.json");
@@ -402,7 +415,7 @@ const getPkgConfig = (cwd: string, link: string): { [key: string]: any } => {
   return JSON.parse(fs.readFileSync(path.join(cwd, link), "utf-8"));
 };
 
-const getCurrentVersion = () => {
+const getCurrentVersion = (): string => {
   const cwd = process.cwd();
   const hasLerna = fs.existsSync(path.join(cwd, "lerna.json"));
   const { version } = getPkgConfig(
