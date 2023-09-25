@@ -24340,7 +24340,8 @@ const refreshRepoTablerecords = async (argv, result) => {
             baseId: argv.extBaseId,
             tableName: argv.repo,
         });
-        // if (!table) return;
+        if (!table)
+            return;
     }
     if (records?.length > 0) {
         await deleteTableRecords({
