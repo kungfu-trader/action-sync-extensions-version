@@ -28470,12 +28470,10 @@ const checkConsumers = async (argv) => {
     });
     const packages = getPkgNameMap();
     const version = getCurrentVersion();
-    if (!records) {
-        return;
-    }
     const repos = records.reduce((acc, cur) => {
-        packages.some((v) => cur.extensions.includes(v)) &&
+        if (packages.some((v) => cur.extensions.includes(v))) {
             acc.add(cur.repo);
+        }
         return acc;
     }, new Set());
     for (const repo of repos) {
@@ -28497,13 +28495,14 @@ const checkConsumers = async (argv) => {
             }
             return acc;
         }, []);
-        items.length > 0 &&
+        if (items.length > 0) {
             updateTableRecords({
                 apiKey: argv.apiKey,
                 baseId: argv.baseId,
                 tableId: repo,
                 records: items,
             });
+        }
     }
 };
 exports.checkConsumers = checkConsumers;
@@ -28608,7 +28607,7 @@ const refreshRepoTablerecords = async (argv, result) => {
             apiKey: argv.apiKey,
             baseId: argv.baseId,
             tableId: argv.repo,
-            records,
+            ids: records.map((v) => v.id),
         });
     }
     await insertTableRecords({
@@ -28641,7 +28640,7 @@ const getTableRecords = async ({ apiKey, baseId, tableId, params = {}, }) => {
     }))
         .catch((e) => console.error(e.response.data.error));
     if (!res) {
-        return;
+        return [];
     }
     return res.offset
         ? [
@@ -28682,11 +28681,11 @@ const updateTableRecords = ({ apiKey, baseId, tableId, records, }) => {
             .catch((e) => console.error(e.response.data.error));
     }));
 };
-const deleteTableRecords = ({ apiKey, baseId, tableId, records, }) => {
-    return Promise.all((0, lodash_chunk_1.default)(records, 10).map((data) => {
+const deleteTableRecords = ({ apiKey, baseId, tableId, ids, }) => {
+    return Promise.all((0, lodash_chunk_1.default)(ids, 10).map((records) => {
         axios_1.default
             .delete(`https://api.airtable.com/v0/${baseId}/${tableId}`, {
-            params: { records: data.map((v) => v.id) },
+            params: { records },
             headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${apiKey}`,

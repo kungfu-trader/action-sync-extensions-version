@@ -42,6 +42,7 @@ type AirtableApi = {
   tableId?: string;
   tableName?: string;
   records?: RecordModel[];
+  ids?: string[];
   params?: { [key: string]: string | number };
 };
 
@@ -87,12 +88,10 @@ export const checkConsumers = async (argv: Argv) => {
   });
   const packages = getPkgNameMap();
   const version = getCurrentVersion();
-  if (!records) {
-    return;
-  }
   const repos = records.reduce((acc: Set<string>, cur: ReposModel) => {
-    packages.some((v: string) => cur.extensions.includes(v)) &&
+    if (packages.some((v: string) => cur.extensions.includes(v))) {
       acc.add(cur.repo);
+    }
     return acc;
   }, new Set());
   for (const repo of repos) {
@@ -114,13 +113,14 @@ export const checkConsumers = async (argv: Argv) => {
       }
       return acc;
     }, []);
-    items.length > 0 &&
+    if (items.length > 0) {
       updateTableRecords({
         apiKey: argv.apiKey,
         baseId: argv.baseId,
         tableId: repo,
         records: items,
       });
+    }
   }
 };
 
@@ -146,7 +146,7 @@ const getVersionList = async (
         },
       }
     )
-    .then((res: any) => res.data)
+    .then((res: { data: any; }) => res.data)
     .catch((e: any) => console.error(e));
   if (!data || data.length < per_page) {
     return;
@@ -247,7 +247,7 @@ const refreshRepoTablerecords = async (argv: Argv, result: Array<RepoExtensionsM
       apiKey: argv.apiKey,
       baseId: argv.baseId,
       tableId: argv.repo,
-      records,
+      ids: records.map((v: { id: string }) => v.id),
     });
   }
   await insertTableRecords({
@@ -356,13 +356,13 @@ const deleteTableRecords = ({
   apiKey,
   baseId,
   tableId,
-  records,
+  ids,
 }: AirtableApi) => {
   return Promise.all(
-    chunk(records, 10).map((data: any) => {
+    chunk(ids, 10).map((records) => {
       axios
         .delete(`https://api.airtable.com/v0/${baseId}/${tableId}`, {
-          params: { records: data.map((v: any) => v.id) },
+          params: { records },
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${apiKey}`,
