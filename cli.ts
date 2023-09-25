@@ -6,8 +6,8 @@ const cmdArgv = yargs(process.argv.slice(2))
   .option("apiKey", { description: "apiKey", type: "string", default: "" })
   .option("owner", { description: "owner", type: "string" })
   .option("repo", { description: "repo", type: "string" })
-  .option("baseId", {
-    description: "baseId",
+  .option("extBaseId", {
+    description: "extBaseId",
     type: "string",
     default: "appiIKDIDD1CSLQgx",
   })
@@ -15,6 +15,16 @@ const cmdArgv = yargs(process.argv.slice(2))
     description: "extTableId",
     type: "string",
     default: "tbl5YM7NkZz6SFQM0",
+  })
+  .option("storeBaseId", {
+    description: "storeBaseId",
+    type: "string",
+    default: "appfcHSwqKUfXxCOc",
+  })
+  .option("storeTableId", {
+    description: "storeTableId",
+    type: "string",
+    default: "tblzCsHS1NcY6LLOb",
   })
   .help()
   .parseSync();
@@ -24,8 +34,10 @@ const argv: Argv = {
   apiKey: cmdArgv.apiKey,
   owner: cmdArgv.owner,
   repo: cmdArgv.repo,
-  baseId: cmdArgv.baseId,
+  extBaseId: cmdArgv.extBaseId,
   extTableId: cmdArgv.extTableId,
+  storeBaseId: cmdArgv.storeBaseId,
+  storeTableId: cmdArgv.storeTableId,
 };
 
 async function dispatch() {
