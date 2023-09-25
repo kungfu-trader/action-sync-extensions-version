@@ -4,7 +4,7 @@ description: "sync extensions version info to airtable"
 inputs:
   token:
     description: "Github token. E.g. secrets.GITHUB_TOKEN"
-    require: true
+    require: false
   apiKey:
     description: "Airtable Authentication Token"
     require: true
@@ -14,6 +14,13 @@ inputs:
   airtable_ext_tableid:
     description: "airtable_ext_tableid"
     default: "tbl5YM7NkZz6SFQM0"
+  airtable_store_baseid:
+    description: "airtable_store_baseid"
+    default: "appfcHSwqKUfXxCOc"
+  airtable_store_tableid:
+    description: "airtable_store_tableid"
+    default: "tblzCsHS1NcY6LLOb"
+  
 
 runs:
   using: "node20"

@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
 import axios from "axios";
-import { Octokit } from "@octokit/rest";
 import * as lockfile from "@yarnpkg/lockfile";
 import chunk from "lodash.chunk";
 import glob from "glob";
@@ -11,24 +10,51 @@ export interface Argv {
   apiKey: string;
   owner: string;
   repo: string;
-  baseId: string;
+  extBaseId: string;
   extTableId: string;
+  storeBaseId: string;
+  storeTableId: string;
 }
 
-type Record = {
+type ReposModel = {
   id?: string;
-  [key: string]: any;
+  Created?: string;
+  extensions: string[];
+  repo: string;
+};
+
+type RepoExtensionsModel = {
+  id?: string;
+  Created?: string;
+  name: string;
+  currentVersion: string;
+  latestVersion: string;
+  repo: string;
 };
 
 type RecordModel = {
-  fields: { [key: string]: any };
+  fields: ReposModel | RepoExtensionsModel;
   id?: string;
   Created?: string;
+};
+
+type AirtableApi = {
+  apiKey: string;
+  baseId: string;
+  tableId?: string;
+  tableName?: string;
+  records?: RecordModel[];
+  ids?: string[];
+  params?: { [key: string]: any };
 };
 
 const DEFAULT_FIELDS = [
   {
     name: "name",
+    type: "singleLineText",
+  },
+  {
+    name: "repo",
     type: "singleLineText",
   },
   {
@@ -42,52 +68,51 @@ const DEFAULT_FIELDS = [
 ];
 
 export const checkExtensions = async (argv: Argv) => {
-  const octokit = new Octokit({
-    auth: argv.token,
-  });
   const currentVersion = getCurrentVersion();
   const extensions: Map<string, string> = getYarnLockInfo(
     fs.readFileSync(path.join(process.cwd(), "yarn.lock"), "utf8")
   );
   const result = [];
   for (const [name, version] of extensions) {
-    const item = await getVersionList(octokit, name, version);
+    const item = await getVersionList(argv, name, version);
     item && result.push(item);
   }
   if (result.length > 0) {
     await refreshExtTableRecords(argv, extensions, currentVersion);
-    await refreshRepoTablerecords(argv, result as any);
+    await refreshRepoTablerecords(argv, result);
   }
 };
 
 export const checkConsumers = async (argv: Argv) => {
-  const records = await getTableRecords({
-    apiKey: argv.apiKey,
-    baseId: argv.baseId,
-    tableId: argv.extTableId,
-  });
+  const records =
+    (await getTableRecords({
+      apiKey: argv.apiKey,
+      baseId: argv.extBaseId,
+      tableId: argv.extTableId,
+    })) || [];
   const packages = getPkgNameMap();
   const version = getCurrentVersion();
-  if (!records) {
-    return;
-  }
-  const repos = records.reduce((acc: Set<string>, cur: Record) => {
-    packages.some((v: string) => cur.extensions.includes(v)) &&
+  const repos = records.reduce((acc: Set<string>, cur: ReposModel) => {
+    if (packages.some((v: string) => cur.extensions.includes(v))) {
       acc.add(cur.repo);
+    }
     return acc;
   }, new Set());
   for (const repo of repos) {
-    const repoRecords = await getTableRecords({
-      apiKey: argv.apiKey,
-      baseId: argv.baseId,
-      tableId: repo,
-    });
+    const repoRecords =
+      (await getTableRecords({
+        apiKey: argv.apiKey,
+        baseId: argv.extBaseId,
+        tableId: repo,
+      })) || [];
     const items = packages.reduce((acc: RecordModel[], cur: string) => {
-      const target = repoRecords.find((v: Record) => v.name === cur);
+      const target = repoRecords.find(
+        (v: RepoExtensionsModel) => v.name === cur
+      );
       if (target && isHitVersion(target.currentVersion, version)) {
         acc.push({
           fields: {
-            ...omit(target, ["Created", "id"]),
+            ...(omit(target, ["Created", "id"]) as RepoExtensionsModel),
             latestVersion: version,
           },
           id: target.id,
@@ -95,53 +120,56 @@ export const checkConsumers = async (argv: Argv) => {
       }
       return acc;
     }, []);
-    items.length > 0 &&
+    if (items.length > 0) {
       updateTableRecords({
         apiKey: argv.apiKey,
-        baseId: argv.baseId,
+        baseId: argv.extBaseId,
         tableId: repo,
         records: items,
       });
+    }
   }
 };
 
 const getVersionList = async (
-  octokit: any,
+  argv: Argv,
   name: string,
-  version: string,
-  page = 1
+  version: string
 ): Promise<any> => {
-  const per_page = 100;
-  const data = await octokit
-    .request(
-      "GET /orgs/{org}/packages/{package_type}/{package_name}/versions",
-      {
-        package_type: "npm",
-        package_name: name.replace("@kungfu-trader/", ""),
-        org: "kungfu-trader",
-        state: "active",
-        per_page,
-        page,
-        headers: {
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-      }
+  const format = (str: string) =>
+    str.replace("-alpha", "").split(".").slice(0, -1).join(".");
+  const current = format(version);
+  const isAlpha = version.includes("-alpha");
+  const data =
+    (await getTableRecords({
+      apiKey: argv.apiKey,
+      baseId: argv.storeBaseId,
+      tableId: argv.storeTableId,
+      params: {
+        filterByFormula: `AND(
+        {package-name} = "${name.replace("@kungfu-trader/", "")}",
+        FIND("${current}", {package-version})
+      )`,
+        sort: [{ field: "timestamp", direction: "desc" }],
+      },
+    })) || [];
+  const latest = data
+    .map((v: { [key: string]: string }) => [
+      v["package-version"],
+      v["repo_name"],
+    ])
+    .filter(([v]: [string]) =>
+      isAlpha
+        ? v.includes("-alpha") && format(v) === current
+        : !v.includes("-alpha") && format(v) === current
     )
-    .then((res: any) => res.data)
-    .catch((e: any) => console.error(e));
-  if (!data || data.length < per_page) {
-    return;
-  }
-  const latestVersion = data.find((v: { name: string }) =>
-    isHitVersion(version, v.name)
-  )?.name;
-  return latestVersion
-    ? {
-        latestVersion,
-        currentVersion: version,
-        name,
-      }
-    : await getVersionList(octokit, name, version, page + 1);
+    .find(([v]: [string]) => isHitVersion(version, v));
+  return {
+    latestVersion: latest?.[0] ?? version,
+    currentVersion: version,
+    repo: latest?.[1] ?? "",
+    name,
+  };
 };
 
 const isHitVersion = (currentVersion: string, targetVersion: string) => {
@@ -178,12 +206,13 @@ const refreshExtTableRecords = async (
   extensions: Map<string, string>,
   version: string
 ) => {
-  const records = await getTableRecords({
-    apiKey: argv.apiKey,
-    baseId: argv.baseId,
-    tableId: argv.extTableId,
-  });
-  const target = records.find((v: Record) => v.repo === argv.repo);
+  const records =
+    (await getTableRecords({
+      apiKey: argv.apiKey,
+      baseId: argv.extBaseId,
+      tableId: argv.extTableId,
+    })) || [];
+  const target = records.find((v: ReposModel) => v.repo === argv.repo);
   const fields = {
     repo: argv.repo,
     extensions: [...extensions.keys()],
@@ -192,59 +221,56 @@ const refreshExtTableRecords = async (
   if (target) {
     updateTableRecords({
       apiKey: argv.apiKey,
-      baseId: argv.baseId,
+      baseId: argv.extBaseId,
       tableId: argv.extTableId,
       records: [{ fields, id: target.id }],
     });
   } else {
     insertTableRecords({
       apiKey: argv.apiKey,
-      baseId: argv.baseId,
+      baseId: argv.extBaseId,
       tableId: argv.extTableId,
       records: [{ fields }],
     });
   }
 };
 
-const refreshRepoTablerecords = async (argv: Argv, result: Array<Record>) => {
+const refreshRepoTablerecords = async (
+  argv: Argv,
+  result: Array<RepoExtensionsModel>
+) => {
+  if (result.length === 0) {
+    return;
+  }
   const records = await getTableRecords({
     apiKey: argv.apiKey,
-    baseId: argv.baseId,
+    baseId: argv.extBaseId,
     tableId: argv.repo,
   });
   if (!Array.isArray(records)) {
     const table = await createTable({
       apiKey: argv.apiKey,
-      baseId: argv.baseId,
+      baseId: argv.extBaseId,
       tableName: argv.repo,
     });
-    if (!table) return;
+    // if (!table) return;
   }
   if (records?.length > 0) {
     await deleteTableRecords({
       apiKey: argv.apiKey,
-      baseId: argv.baseId,
+      baseId: argv.extBaseId,
       tableId: argv.repo,
-      records,
+      ids: records.map((v: { id: string }) => v.id),
     });
   }
   await insertTableRecords({
     apiKey: argv.apiKey,
-    baseId: argv.baseId,
+    baseId: argv.extBaseId,
     tableId: argv.repo,
     records: result.map((v) => ({
       fields: v,
     })),
   });
-};
-
-type AirtableApi = {
-  apiKey: string;
-  baseId: string;
-  tableId?: string;
-  tableName?: string;
-  records?: RecordModel[];
-  params?: { [key: string]: string | number };
 };
 
 const getTableRecords = async ({
@@ -271,9 +297,9 @@ const getTableRecords = async ({
         id: v.id,
       })),
     }))
-    .catch((e) => console.error(e.response.data.error));
+    .catch((e) => console.error(e.response.data.error, e.response.config));
   if (!res) {
-    return;
+    return false;
   }
   return res.offset
     ? [
@@ -310,7 +336,7 @@ const insertTableRecords = ({
             },
           }
         )
-        .catch((e) => console.error(e.response.data.error));
+        .catch((e) => console.error(e.response.data.error, e.response.config));
     })
   );
 };
@@ -334,28 +360,23 @@ const updateTableRecords = ({
             },
           }
         )
-        .catch((e) => console.error(e.response.data.error));
+        .catch((e) => console.error(e.response.data.error, e.response.config));
     })
   );
 };
 
-const deleteTableRecords = ({
-  apiKey,
-  baseId,
-  tableId,
-  records,
-}: AirtableApi) => {
+const deleteTableRecords = ({ apiKey, baseId, tableId, ids }: AirtableApi) => {
   return Promise.all(
-    chunk(records, 10).map((data: any) => {
+    chunk(ids, 10).map((records) => {
       axios
         .delete(`https://api.airtable.com/v0/${baseId}/${tableId}`, {
-          params: { records: data.map((v: any) => v.id) },
+          params: { records },
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${apiKey}`,
           },
         })
-        .catch((e) => console.error(e.response.data.error));
+        .catch((e) => console.error(e.response.data.error, e.response.config));
     })
   );
 };
@@ -376,10 +397,10 @@ const createTable = ({ apiKey, baseId, tableName }: AirtableApi) => {
         },
       }
     )
-    .catch((e) => console.error(e.response.data.error));
+    .catch((e) => console.error(e.response.data.error, e.response.config));
 };
 
-const getPkgNameMap = () => {
+const getPkgNameMap = (): string[] => {
   const cwd = process.cwd();
   const hasLerna = fs.existsSync(path.join(cwd, "lerna.json"));
   const config = getPkgConfig(cwd, hasLerna ? "lerna.json" : "package.json");
@@ -402,7 +423,7 @@ const getPkgConfig = (cwd: string, link: string): { [key: string]: any } => {
   return JSON.parse(fs.readFileSync(path.join(cwd, link), "utf-8"));
 };
 
-const getCurrentVersion = () => {
+const getCurrentVersion = (): string => {
   const cwd = process.cwd();
   const hasLerna = fs.existsSync(path.join(cwd, "lerna.json"));
   const { version } = getPkgConfig(

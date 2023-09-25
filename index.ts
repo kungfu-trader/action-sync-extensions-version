@@ -8,8 +8,10 @@ const main = async function () {
     repo: context.payload.repository?.name!,
     token: getInput("token"),
     apiKey: getInput("apiKey"),
-    baseId: getInput("airtable_ext_baseid"),
+    extBaseId: getInput("airtable_ext_baseid"),
     extTableId: getInput("airtable_ext_tableid"),
+    storeBaseId: getInput("airtable_store_baseid"),
+    storeTableId: getInput("airtable_store_tableid"),
   };
   if (!argv.apiKey) {
     console.error("has not airtable token");
