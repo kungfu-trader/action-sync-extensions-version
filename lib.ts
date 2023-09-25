@@ -303,17 +303,17 @@ const getTableRecords = async ({
   }
   return res.offset
     ? [
-      ...res.data,
-      ...(await getTableRecords({
-        apiKey,
-        baseId,
-        tableId,
-        params: {
-          ...params,
-          offset: res.offset,
-        },
-      })),
-    ]
+        ...res.data,
+        ...(await getTableRecords({
+          apiKey,
+          baseId,
+          tableId,
+          params: {
+            ...params,
+            offset: res.offset,
+          },
+        })),
+      ]
     : res.data;
 };
 
