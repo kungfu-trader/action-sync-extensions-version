@@ -32,6 +32,7 @@ type RepoExtensionsModel = {
   currentVersion: string;
   latestVersion: string;
   repo: string;
+  Calculation?: string;
 };
 
 type RecordModel = {
@@ -143,7 +144,11 @@ export const checkConsumers = async (argv: Argv) => {
       if (target && isHitVersion(target.currentVersion, version!)) {
         acc.push({
           fields: {
-            ...(omit(target, ["Created", "id"]) as RepoExtensionsModel),
+            ...(omit(target, [
+              "Created",
+              "id",
+              "Calculation",
+            ]) as RepoExtensionsModel),
             latestVersion: version!,
           },
           id: target.id,

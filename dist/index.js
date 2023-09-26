@@ -28505,7 +28505,11 @@ const checkConsumers = async (argv) => {
             if (target && isHitVersion(target.currentVersion, version)) {
                 acc.push({
                     fields: {
-                        ...omit(target, ["Created", "id"]),
+                        ...omit(target, [
+                            "Created",
+                            "id",
+                            "Calculation",
+                        ]),
                         latestVersion: version,
                     },
                     id: target.id,
