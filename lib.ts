@@ -87,20 +87,8 @@ export const manualCheckConsumers = async (argv: Argv) => {
         workflow_id: "check-consumers.yml",
         ref: "v1.0-alpha",
         inputs: {
-          packages: JSON.stringify([
-            "@kungfu-trader/kungfu-js-api",
-            "@kungfu-trader/kungfu-app",
-            "@kungfu-trader/kungfu-cli",
-            "@kungfu-trader/kungfu-core",
-            "@kungfu-trader/kungfu-sdk",
-            "@kungfu-trader/kungfu-toolchain",
-            "@kungfu-trader/kfx-operator-bar",
-            "@kungfu-trader/kfx-indexer-live",
-            "@kungfu-trader/kfx-matcher-101-cpp",
-            "@kungfu-trader/kfx-broker-sim",
-            "@kungfu-trader/kfx-broker-xtp-demo",
-          ]),
-          version: "2.5.1-alpha.51",
+          packages: JSON.stringify(packages),
+          version,
         },
         headers: {
           "X-GitHub-Api-Version": "2022-11-28",
