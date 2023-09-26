@@ -28486,8 +28486,8 @@ const checkConsumers = async (argv) => {
         baseId: argv.extBaseId,
         tableId: argv.extTableId,
     })) || [];
-    const packages = JSON.parse(argv.packages);
-    const version = argv.version;
+    const packages = argv.packages ? JSON.parse(argv.packages) : getPkgNameMap();
+    const version = argv.version ?? getCurrentVersion();
     const repos = records.reduce((acc, cur) => {
         if (packages.some((v) => cur.extensions.includes(v))) {
             acc.add(cur.repo);
@@ -40939,17 +40939,19 @@ const main = async function () {
         packages: (0, core_1.getInput)("packages"),
         version: (0, core_1.getInput)("version"),
     };
+    if (!argv.apiKey && !argv.packages && !argv.version) {
+        await (0, lib_1.manualCheckConsumers)(argv);
+    }
     if (!argv.apiKey) {
         console.error("has not airtable token");
         return;
     }
     if (argv.packages && argv.version) {
         await (0, lib_1.checkConsumers)(argv);
+        return;
     }
-    else {
-        await (0, lib_1.checkExtensions)(argv);
-        await (0, lib_1.manualCheckConsumers)(argv);
-    }
+    await (0, lib_1.checkExtensions)(argv);
+    await (0, lib_1.checkConsumers)(argv);
 };
 if (require.main === require.cache[eval('__filename')]) {
     main().catch((error) => {
