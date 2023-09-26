@@ -12,13 +12,13 @@ on:
         type: string
 
 jobs:
-  automated:
+  check:
     runs-on: ubuntu-20.04
     steps:
       - name: trigger
         uses: kungfu-trader/action-sync-extensions-version@v1.0-alpha
         with:
           apiKey: ${{ secrets.AIRTABLE_API_KEY }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.KUNGFU_GITHUB_TOKEN }}
           packages: ${{ inputs.packages }}
           version: ${{ inputs.version }}
