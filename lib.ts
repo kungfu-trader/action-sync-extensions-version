@@ -4,7 +4,7 @@ import axios from "axios";
 import * as lockfile from "@yarnpkg/lockfile";
 import chunk from "lodash.chunk";
 import glob from "glob";
-
+import { Octokit } from "@octokit/rest";
 export interface Argv {
   token: string;
   apiKey: string;
@@ -14,6 +14,8 @@ export interface Argv {
   extTableId: string;
   storeBaseId: string;
   storeTableId: string;
+  packages?: string;
+  version?: string;
 }
 
 type ReposModel = {
@@ -67,6 +69,47 @@ const DEFAULT_FIELDS = [
   },
 ];
 
+export const manualCheckConsumers = async (argv: Argv) => {
+  const packages = getPkgNameMap();
+  const version = getCurrentVersion();
+  const octokit = new Octokit({
+    auth: argv.token,
+  });
+  await octokit
+    .request(
+      "POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches",
+      {
+        owner: "kungfu-trader",
+        repo: "action-sync-extensions-version",
+        workflow_id: "check-consumers.yml",
+        ref: "v1.0-alpha",
+        inputs: {
+          packages: JSON.stringify([
+            "@kungfu-trader/kungfu-js-api",
+            "@kungfu-trader/kungfu-app",
+            "@kungfu-trader/kungfu-cli",
+            "@kungfu-trader/kungfu-core",
+            "@kungfu-trader/kungfu-sdk",
+            "@kungfu-trader/kungfu-toolchain",
+            "@kungfu-trader/kfx-operator-bar",
+            "@kungfu-trader/kfx-indexer-live",
+            "@kungfu-trader/kfx-matcher-101-cpp",
+            "@kungfu-trader/kfx-broker-sim",
+            "@kungfu-trader/kfx-broker-xtp-demo",
+          ]),
+          version: "2.5.1-alpha.50",
+        },
+        headers: {
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+      }
+    )
+    .then((res) => {
+      console.log(res.data);
+    })
+    .catch((e) => console.error(e));
+};
+
 export const checkExtensions = async (argv: Argv) => {
   const currentVersion = getCurrentVersion();
   const extensions: Map<string, string> = getYarnLockInfo(
@@ -90,8 +133,8 @@ export const checkConsumers = async (argv: Argv) => {
       baseId: argv.extBaseId,
       tableId: argv.extTableId,
     })) || [];
-  const packages = getPkgNameMap();
-  const version = getCurrentVersion();
+  const packages = JSON.parse(argv.packages!);
+  const version = argv.version;
   const repos = records.reduce((acc: Set<string>, cur: ReposModel) => {
     if (packages.some((v: string) => cur.extensions.includes(v))) {
       acc.add(cur.repo);
@@ -109,11 +152,11 @@ export const checkConsumers = async (argv: Argv) => {
       const target = repoRecords.find(
         (v: RepoExtensionsModel) => v.name === cur
       );
-      if (target && isHitVersion(target.currentVersion, version)) {
+      if (target && isHitVersion(target.currentVersion, version!)) {
         acc.push({
           fields: {
             ...(omit(target, ["Created", "id"]) as RepoExtensionsModel),
-            latestVersion: version,
+            latestVersion: version!,
           },
           id: target.id,
         });

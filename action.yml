@@ -20,6 +20,12 @@ inputs:
   airtable_store_tableid:
     description: "airtable_store_tableid"
     default: "tblzCsHS1NcY6LLOb"
+  packages:
+    description: "consumers packages"
+    require: false
+  version:
+    description: "consumers version"
+    require: false
   
 
 runs:
