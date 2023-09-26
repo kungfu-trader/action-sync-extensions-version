@@ -70,12 +70,15 @@ const DEFAULT_FIELDS = [
 ];
 
 export const manualCheckConsumers = async (argv: Argv) => {
-  const packages = getPkgNameMap();
-  const version = getCurrentVersion();
   const octokit = new Octokit({
     auth: argv.token,
   });
-  await octokit
+  const packages = getPkgNameMap();
+  const version = getCurrentVersion();
+  if (packages.length === 0 || !version) {
+    return;
+  }
+  return octokit
     .request(
       "POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches",
       {
@@ -97,16 +100,13 @@ export const manualCheckConsumers = async (argv: Argv) => {
             "@kungfu-trader/kfx-broker-sim",
             "@kungfu-trader/kfx-broker-xtp-demo",
           ]),
-          version: "2.5.1-alpha.50",
+          version: "2.5.1-alpha.51",
         },
         headers: {
           "X-GitHub-Api-Version": "2022-11-28",
         },
       }
     )
-    .then((res) => {
-      console.log(res.data);
-    })
     .catch((e) => console.error(e));
 };
 
