@@ -1,4 +1,9 @@
-import { checkExtensions, checkConsumers, Argv } from "./lib";
+import {
+  checkExtensions,
+  checkConsumers,
+  manualCheckConsumers,
+  Argv,
+} from "./lib";
 import { getInput, setFailed } from "@actions/core";
 import { context } from "@actions/github";
 
@@ -12,13 +17,19 @@ const main = async function () {
     extTableId: getInput("airtable_ext_tableid"),
     storeBaseId: getInput("airtable_store_baseid"),
     storeTableId: getInput("airtable_store_tableid"),
+    packages: getInput("packages"),
+    version: getInput("version"),
   };
   if (!argv.apiKey) {
     console.error("has not airtable token");
     return;
   }
-  await checkExtensions(argv);
-  await checkConsumers(argv);
+  if (argv.packages && argv.version) {
+    await checkConsumers(argv);
+  } else {
+    await checkExtensions(argv);
+    await manualCheckConsumers(argv);
+  }
 };
 
 if (require.main === module) {
