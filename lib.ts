@@ -121,8 +121,8 @@ export const checkConsumers = async (argv: Argv) => {
       baseId: argv.extBaseId,
       tableId: argv.extTableId,
     })) || [];
-  const packages = JSON.parse(argv.packages!);
-  const version = argv.version;
+  const packages = argv.packages ? JSON.parse(argv.packages!) : getPkgNameMap();
+  const version = argv.version ?? getCurrentVersion();
   const repos = records.reduce((acc: Set<string>, cur: ReposModel) => {
     if (packages.some((v: string) => cur.extensions.includes(v))) {
       acc.add(cur.repo);

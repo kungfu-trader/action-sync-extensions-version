@@ -4,7 +4,7 @@ description: "sync extensions version info to airtable"
 inputs:
   token:
     description: "Github token. E.g. secrets.GITHUB_TOKEN"
-    require: false
+    require: true
   apiKey:
     description: "Airtable Authentication Token"
     require: true

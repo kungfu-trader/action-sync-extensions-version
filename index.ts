@@ -20,16 +20,20 @@ const main = async function () {
     packages: getInput("packages"),
     version: getInput("version"),
   };
+
+  if (!argv.apiKey && !argv.packages && !argv.version) {
+    await manualCheckConsumers(argv);
+  }
   if (!argv.apiKey) {
     console.error("has not airtable token");
     return;
   }
   if (argv.packages && argv.version) {
     await checkConsumers(argv);
-  } else {
-    await checkExtensions(argv);
-    await manualCheckConsumers(argv);
+    return;
   }
+  await checkExtensions(argv);
+  await checkConsumers(argv);
 };
 
 if (require.main === module) {
