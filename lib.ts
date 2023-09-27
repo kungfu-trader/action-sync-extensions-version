@@ -1,10 +1,10 @@
 import fs from "fs";
 import path from "path";
 import axios from "axios";
-import * as lockfile from "@yarnpkg/lockfile";
 import chunk from "lodash.chunk";
-import glob from "glob";
 import { Octokit } from "@octokit/rest";
+import * as lockfile from "@yarnpkg/lockfile";
+import * as glob from "glob";
 export interface Argv {
   token: string;
   apiKey: string;
@@ -372,6 +372,9 @@ const insertTableRecords = ({
             },
           }
         )
+        .then(() =>
+          console.log(`insert ${tableId} ${records?.map((v) => v.fields)}`)
+        )
         .catch((e) => console.error(e.response.data.error, e.response.config));
     })
   );
@@ -395,6 +398,9 @@ const updateTableRecords = ({
               Authorization: `Bearer ${apiKey}`,
             },
           }
+        )
+        .then(() =>
+          console.log(`update ${tableId} ${records?.map((v) => v.fields)}`)
         )
         .catch((e) => console.error(e.response.data.error, e.response.config));
     })
