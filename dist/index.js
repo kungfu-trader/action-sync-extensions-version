@@ -28418,10 +28418,10 @@ exports.checkConsumers = exports.checkExtensions = exports.manualCheckConsumers 
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const path_1 = __importDefault(__nccwpck_require__(1017));
 const axios_1 = __importDefault(__nccwpck_require__(8757));
-const lockfile = __importStar(__nccwpck_require__(904));
 const lodash_chunk_1 = __importDefault(__nccwpck_require__(4234));
-const glob_1 = __importDefault(__nccwpck_require__(3277));
 const rest_1 = __nccwpck_require__(5375);
+const lockfile = __importStar(__nccwpck_require__(904));
+const glob = __importStar(__nccwpck_require__(3277));
 const DEFAULT_FIELDS = [
     {
         name: "name",
@@ -28692,6 +28692,7 @@ const insertTableRecords = ({ apiKey, baseId, tableId, records, }) => {
                 Authorization: `Bearer ${apiKey}`,
             },
         })
+            .then(() => console.log(`insert ${tableId} ${records?.map((v) => v.fields)}`))
             .catch((e) => console.error(e.response.data.error, e.response.config));
     }));
 };
@@ -28704,6 +28705,7 @@ const updateTableRecords = ({ apiKey, baseId, tableId, records, }) => {
                 Authorization: `Bearer ${apiKey}`,
             },
         })
+            .then(() => console.log(`update ${tableId} ${records?.map((v) => v.fields)}`))
             .catch((e) => console.error(e.response.data.error, e.response.config));
     }));
 };
@@ -28740,7 +28742,7 @@ const getPkgNameMap = () => {
     const config = getPkgConfig(cwd, hasLerna ? "lerna.json" : "package.json");
     if (hasLerna) {
         const items = config.packages
-            .map((x) => glob_1.default.sync(`${x}/package.json`).reduce((acc, link) => {
+            .map((x) => glob.sync(`${x}/package.json`).reduce((acc, link) => {
             const { name, publishConfig } = getPkgConfig(cwd, link);
             publishConfig && acc.push(name);
             return acc;
