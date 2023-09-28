@@ -186,7 +186,7 @@ const getVersionList = async (
         {package-name} = "${name.replace("@kungfu-trader/", "")}",
         FIND("${current}", {package-version})
       )`,
-        sort: [{ field: "timestamp", direction: "desc" }],
+        sort: [{ field: "Created", direction: "desc" }],
       },
     })) || [];
   const latest = data
