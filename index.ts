@@ -11,6 +11,7 @@ const main = async function () {
   const argv: Argv = {
     owner: context.payload.repository?.owner.login!,
     repo: context.payload.repository?.name!,
+    pullRequestTitle: context.payload?.pull_request?.title,
     token: getInput("token"),
     apiKey: getInput("apiKey"),
     extBaseId: getInput("airtable_ext_baseid"),
