@@ -28445,7 +28445,7 @@ const manualCheckConsumers = async (argv) => {
         auth: argv.token,
     });
     const packages = getPkgNameMap();
-    const version = getCurrentVersion();
+    const version = getCurrentVersion(argv);
     if (packages.length === 0 || !version) {
         return;
     }
@@ -28467,7 +28467,7 @@ const manualCheckConsumers = async (argv) => {
 };
 exports.manualCheckConsumers = manualCheckConsumers;
 const checkExtensions = async (argv) => {
-    const currentVersion = getCurrentVersion();
+    const currentVersion = getCurrentVersion(argv);
     const extensions = getYarnLockInfo(fs_1.default.readFileSync(path_1.default.join(process.cwd(), "yarn.lock"), "utf8"));
     const result = [];
     for (const [name, version] of extensions) {
@@ -28487,7 +28487,7 @@ const checkConsumers = async (argv) => {
         tableId: argv.extTableId,
     })) || [];
     const packages = argv.packages ? JSON.parse(argv.packages) : getPkgNameMap();
-    const version = argv.version ?? getCurrentVersion();
+    const version = argv.version ?? getCurrentVersion(argv);
     const repos = records.reduce((acc, cur) => {
         if (packages.some((v) => cur.extensions.includes(v))) {
             acc.add(cur.repo);
@@ -28755,11 +28755,8 @@ const getPkgNameMap = () => {
 const getPkgConfig = (cwd, link) => {
     return JSON.parse(fs_1.default.readFileSync(path_1.default.join(cwd, link), "utf-8"));
 };
-const getCurrentVersion = () => {
-    const cwd = process.cwd();
-    const hasLerna = fs_1.default.existsSync(path_1.default.join(cwd, "lerna.json"));
-    const { version } = getPkgConfig(cwd, hasLerna ? "lerna.json" : "package.json");
-    return version;
+const getCurrentVersion = (argv) => {
+    return argv.pullRequestTitle?.split(" v")?.[1] ?? "";
 };
 const omit = (obj, keys) => {
     return Object.fromEntries(Object.entries(obj).filter(([key]) => !keys.includes(key)));
@@ -40936,6 +40933,7 @@ const main = async function () {
     const argv = {
         owner: github_1.context.payload.repository?.owner.login,
         repo: github_1.context.payload.repository?.name,
+        pullRequestTitle: github_1.context.payload?.pull_request?.title,
         token: (0, core_1.getInput)("token"),
         apiKey: (0, core_1.getInput)("apiKey"),
         extBaseId: (0, core_1.getInput)("airtable_ext_baseid"),

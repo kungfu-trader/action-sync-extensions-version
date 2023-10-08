@@ -10,6 +10,7 @@ export interface Argv {
   apiKey: string;
   owner: string;
   repo: string;
+  pullRequestTitle?: string;
   extBaseId: string;
   extTableId: string;
   storeBaseId: string;
@@ -75,7 +76,7 @@ export const manualCheckConsumers = async (argv: Argv) => {
     auth: argv.token,
   });
   const packages = getPkgNameMap();
-  const version = getCurrentVersion();
+  const version = getCurrentVersion(argv);
   if (packages.length === 0 || !version) {
     return;
   }
@@ -100,7 +101,7 @@ export const manualCheckConsumers = async (argv: Argv) => {
 };
 
 export const checkExtensions = async (argv: Argv) => {
-  const currentVersion = getCurrentVersion();
+  const currentVersion = getCurrentVersion(argv);
   const extensions: Map<string, string> = getYarnLockInfo(
     fs.readFileSync(path.join(process.cwd(), "yarn.lock"), "utf8")
   );
@@ -123,7 +124,7 @@ export const checkConsumers = async (argv: Argv) => {
       tableId: argv.extTableId,
     })) || [];
   const packages = argv.packages ? JSON.parse(argv.packages!) : getPkgNameMap();
-  const version = argv.version ?? getCurrentVersion();
+  const version = argv.version ?? getCurrentVersion(argv);
   const repos = records.reduce((acc: Set<string>, cur: ReposModel) => {
     if (packages.some((v: string) => cur.extensions.includes(v))) {
       acc.add(cur.repo);
@@ -465,14 +466,8 @@ const getPkgConfig = (cwd: string, link: string): { [key: string]: any } => {
   return JSON.parse(fs.readFileSync(path.join(cwd, link), "utf-8"));
 };
 
-const getCurrentVersion = (): string => {
-  const cwd = process.cwd();
-  const hasLerna = fs.existsSync(path.join(cwd, "lerna.json"));
-  const { version } = getPkgConfig(
-    cwd,
-    hasLerna ? "lerna.json" : "package.json"
-  );
-  return version;
+const getCurrentVersion = (argv: Argv): string => {
+  return argv.pullRequestTitle?.split(" v")?.[1] ?? "";
 };
 
 const omit = (obj: { [s: string]: any }, keys: string[]) => {
