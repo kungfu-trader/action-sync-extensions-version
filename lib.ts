@@ -34,6 +34,7 @@ type RepoExtensionsModel = {
   latestVersion: string;
   repo: string;
   Calculation?: string;
+  artifactVersion: string;
 };
 
 type RecordModel = {
@@ -69,6 +70,10 @@ const DEFAULT_FIELDS = [
     name: "latestVersion",
     type: "singleLineText",
   },
+  {
+    name: "artifactVersion",
+    type: "singleLineText",
+  },
 ];
 
 export const manualCheckConsumers = async (argv: Argv) => {
@@ -101,17 +106,18 @@ export const manualCheckConsumers = async (argv: Argv) => {
 };
 
 export const checkExtensions = async (argv: Argv) => {
-  const currentVersion = getCurrentVersion(argv);
   const extensions: Map<string, string> = getYarnLockInfo(
     fs.readFileSync(path.join(process.cwd(), "yarn.lock"), "utf8")
   );
+  // const currentVersion = getCurrentVersion(argv);
+  // const extensions: any = await getOriginYarnLock(argv, currentVersion);
   const result = [];
   for (const [name, version] of extensions) {
     const item = await getVersionList(argv, name, version);
     item && result.push(item);
   }
   if (result.length > 0) {
-    await refreshExtTableRecords(argv, extensions, currentVersion);
+    await refreshExtTableRecords(argv, extensions);
     await refreshRepoTablerecords(argv, result);
   }
 };
@@ -139,22 +145,25 @@ export const checkConsumers = async (argv: Argv) => {
         tableId: repo,
       })) || [];
     const items = packages.reduce((acc: RecordModel[], cur: string) => {
-      const target = repoRecords.find(
-        (v: RepoExtensionsModel) => v.name === cur
-      );
-      if (target && isHitVersion(target.currentVersion, version!)) {
-        acc.push({
-          fields: {
-            ...(omit(target, [
-              "Created",
-              "id",
-              "Calculation",
-            ]) as RepoExtensionsModel),
-            latestVersion: version!,
-          },
-          id: target.id,
-        });
-      }
+      repoRecords
+        .filter((v: RepoExtensionsModel) => v.name === cur)
+        .forEach(
+          (target: { [x: string]: any; currentVersion?: any; id?: any }) => {
+            if (isHitVersion(target.currentVersion, version!)) {
+              acc.push({
+                fields: {
+                  ...(omit(target, [
+                    "Created",
+                    "id",
+                    "Calculation",
+                  ]) as RepoExtensionsModel),
+                  latestVersion: version!,
+                },
+                id: target.id,
+              });
+            }
+          }
+        );
       return acc;
     }, []);
     if (items.length > 0) {
@@ -204,8 +213,9 @@ const getVersionList = async (
   return {
     latestVersion: latest?.[0] ?? version,
     currentVersion: version,
-    repo: latest?.[1] ?? "",
+    repo: latest?.[1] ?? name,
     name,
+    artifactVersion: getCurrentVersion(argv),
   };
 };
 
@@ -221,27 +231,9 @@ const isHitVersion = (currentVersion: string, targetVersion: string) => {
   );
 };
 
-const getYarnLockInfo = function (content: string) {
-  if (!content) {
-    return new Map();
-  }
-  const json = lockfile.parse(content);
-  return filterBy(json.object).reduce((acc, [key, value]: any) => {
-    acc.set("@" + key.split("@")[1], value.version);
-    return acc;
-  }, new Map());
-};
-
-const filterBy = (items = {}) => {
-  return Object.entries(items).filter(([key]) =>
-    key.startsWith("@kungfu-trader/")
-  );
-};
-
 const refreshExtTableRecords = async (
   argv: Argv,
-  extensions: Map<string, string>,
-  version: string
+  extensions: Map<string, string>
 ) => {
   const records =
     (await getTableRecords({
@@ -252,8 +244,9 @@ const refreshExtTableRecords = async (
   const target = records.find((v: ReposModel) => v.repo === argv.repo);
   const fields = {
     repo: argv.repo,
-    extensions: [...extensions.keys()],
-    version,
+    extensions: [
+      ...new Set([...extensions.keys(), ...(target ? target.extensions : [])]),
+    ],
   };
   if (target) {
     updateTableRecords({
@@ -293,12 +286,20 @@ const refreshRepoTablerecords = async (
     if (!table) return;
   }
   if (records?.length > 0) {
-    await deleteTableRecords({
-      apiKey: argv.apiKey,
-      baseId: argv.extBaseId,
-      tableId: argv.repo,
-      ids: records.map((v: { id: string }) => v.id),
-    });
+    const currentSimulateVersion = simulateVersion(getCurrentVersion(argv));
+    const ids = records
+      .filter(
+        (v: RepoExtensionsModel) =>
+          simulateVersion(v.artifactVersion) === currentSimulateVersion
+      )
+      .map((v: RepoExtensionsModel) => v.id);
+    ids.length > 0 &&
+      (await deleteTableRecords({
+        apiKey: argv.apiKey,
+        baseId: argv.extBaseId,
+        tableId: argv.repo,
+        ids,
+      }));
   }
   await insertTableRecords({
     apiKey: argv.apiKey,
@@ -374,7 +375,7 @@ const insertTableRecords = ({
           }
         )
         .then(() =>
-          console.log(`insert ${tableId} ${records?.map((v) => v.fields)}`)
+          console.log(`insert ${baseId}/${tableId} ${data.length} items`)
         )
         .catch((e) => console.error(e.response.data.error, e.response.config));
     })
@@ -401,7 +402,7 @@ const updateTableRecords = ({
           }
         )
         .then(() =>
-          console.log(`update ${tableId} ${records?.map((v) => v.fields)}`)
+          console.log(`update ${baseId}/${tableId} ${data.length} items`)
         )
         .catch((e) => console.error(e.response.data.error, e.response.config));
     })
@@ -419,6 +420,9 @@ const deleteTableRecords = ({ apiKey, baseId, tableId, ids }: AirtableApi) => {
             Authorization: `Bearer ${apiKey}`,
           },
         })
+        .then(() =>
+          console.log(`delete ${baseId}/${tableId} ${records.length} items`)
+        )
         .catch((e) => console.error(e.response.data.error, e.response.config));
     })
   );
@@ -474,4 +478,49 @@ const omit = (obj: { [s: string]: any }, keys: string[]) => {
   return Object.fromEntries(
     Object.entries(obj).filter(([key]) => !keys.includes(key))
   );
+};
+
+const simulateVersion = (version: string) => {
+  const isAlpha = version.includes("-alpha");
+  const [major, minor] = version.split(".");
+  return `${major}.${minor}${isAlpha ? "-alpha" : ""}`;
+};
+
+const filterBy = (items = {}) => {
+  return Object.entries(items).filter(([key]) =>
+    key.startsWith("@kungfu-trader/")
+  );
+};
+
+const getOriginYarnLock = async (argv: Argv, version: string) => {
+  const octokit: any = new Octokit({
+    auth: argv.token,
+  });
+  const res = await octokit
+    .request("GET /repos/{owner}/{repo}/contents/{path}", {
+      owner: argv.owner,
+      repo: argv.repo,
+      path: "yarn.lock",
+      ref: `v${version}`,
+      headers: {
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    })
+    .catch(() => null);
+  if (res?.data?.content) {
+    return getYarnLockInfo(
+      Buffer.from(res?.data?.content, "base64").toString("utf-8")
+    );
+  }
+};
+
+const getYarnLockInfo = function (content: string) {
+  if (!content) {
+    return new Map();
+  }
+  const json = lockfile.parse(content);
+  return filterBy(json.object).reduce((acc, [key, value]: any) => {
+    acc.set("@" + key.split("@")[1], value.version);
+    return acc;
+  }, new Map());
 };
