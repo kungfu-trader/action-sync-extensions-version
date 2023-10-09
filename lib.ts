@@ -213,7 +213,7 @@ const getVersionList = async (
   return {
     latestVersion: latest?.[0] ?? version,
     currentVersion: version,
-    repo: latest?.[1] ?? name,
+    repo: latest?.[1],
     name,
     artifactVersion: getCurrentVersion(argv),
   };
