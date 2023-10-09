@@ -213,7 +213,10 @@ const getVersionList = async (
   return {
     latestVersion: latest?.[0] ?? version,
     currentVersion: version,
-    repo: latest?.[1],
+    repo:
+      latest?.[1] ??
+      (await getPackageRepo(argv, name.replace("@kungfu-trader/", ""))) ??
+      "",
     name,
     artifactVersion: getCurrentVersion(argv),
   };
@@ -490,6 +493,25 @@ const filterBy = (items = {}) => {
   return Object.entries(items).filter(([key]) =>
     key.startsWith("@kungfu-trader/")
   );
+};
+
+const getPackageRepo = (argv: Argv, packageName: string) => {
+  const octokit: any = new Octokit({
+    auth: argv.token,
+  });
+  return octokit
+    .request("GET /orgs/{org}/packages/{package_type}/{package_name}", {
+      package_type: "npm",
+      package_name: packageName,
+      org: argv.owner,
+      headers: {
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    })
+    .then((res: any) => {
+      return res.data?.repository?.name;
+    })
+    .catch((e: any) => console.error(e));
 };
 
 const getOriginYarnLock = async (argv: Argv, version: string) => {
