@@ -28439,6 +28439,10 @@ const DEFAULT_FIELDS = [
         name: "latestVersion",
         type: "singleLineText",
     },
+    {
+        name: "artifactVersion",
+        type: "singleLineText",
+    },
 ];
 const manualCheckConsumers = async (argv) => {
     const octokit = new rest_1.Octokit({
@@ -28467,15 +28471,16 @@ const manualCheckConsumers = async (argv) => {
 };
 exports.manualCheckConsumers = manualCheckConsumers;
 const checkExtensions = async (argv) => {
-    const currentVersion = getCurrentVersion(argv);
     const extensions = getYarnLockInfo(fs_1.default.readFileSync(path_1.default.join(process.cwd(), "yarn.lock"), "utf8"));
+    // const currentVersion = getCurrentVersion(argv);
+    // const extensions: any = await getOriginYarnLock(argv, currentVersion);
     const result = [];
     for (const [name, version] of extensions) {
         const item = await getVersionList(argv, name, version);
         item && result.push(item);
     }
     if (result.length > 0) {
-        await refreshExtTableRecords(argv, extensions, currentVersion);
+        await refreshExtTableRecords(argv, extensions);
         await refreshRepoTablerecords(argv, result);
     }
 };
@@ -28501,20 +28506,23 @@ const checkConsumers = async (argv) => {
             tableId: repo,
         })) || [];
         const items = packages.reduce((acc, cur) => {
-            const target = repoRecords.find((v) => v.name === cur);
-            if (target && isHitVersion(target.currentVersion, version)) {
-                acc.push({
-                    fields: {
-                        ...omit(target, [
-                            "Created",
-                            "id",
-                            "Calculation",
-                        ]),
-                        latestVersion: version,
-                    },
-                    id: target.id,
-                });
-            }
+            repoRecords
+                .filter((v) => v.name === cur)
+                .forEach((target) => {
+                if (isHitVersion(target.currentVersion, version)) {
+                    acc.push({
+                        fields: {
+                            ...omit(target, [
+                                "Created",
+                                "id",
+                                "Calculation",
+                            ]),
+                            latestVersion: version,
+                        },
+                        id: target.id,
+                    });
+                }
+            });
             return acc;
         }, []);
         if (items.length > 0) {
@@ -28556,8 +28564,9 @@ const getVersionList = async (argv, name, version) => {
     return {
         latestVersion: latest?.[0] ?? version,
         currentVersion: version,
-        repo: latest?.[1] ?? "",
+        repo: latest?.[1] ?? name,
         name,
+        artifactVersion: getCurrentVersion(argv),
     };
 };
 const isHitVersion = (currentVersion, targetVersion) => {
@@ -28568,20 +28577,7 @@ const isHitVersion = (currentVersion, targetVersion) => {
         target[target.length - 1] >= current[current.length - 1] &&
         target.slice(0, -1).every((_, i) => +target[i] === +current[i]));
 };
-const getYarnLockInfo = function (content) {
-    if (!content) {
-        return new Map();
-    }
-    const json = lockfile.parse(content);
-    return filterBy(json.object).reduce((acc, [key, value]) => {
-        acc.set("@" + key.split("@")[1], value.version);
-        return acc;
-    }, new Map());
-};
-const filterBy = (items = {}) => {
-    return Object.entries(items).filter(([key]) => key.startsWith("@kungfu-trader/"));
-};
-const refreshExtTableRecords = async (argv, extensions, version) => {
+const refreshExtTableRecords = async (argv, extensions) => {
     const records = (await getTableRecords({
         apiKey: argv.apiKey,
         baseId: argv.extBaseId,
@@ -28590,8 +28586,9 @@ const refreshExtTableRecords = async (argv, extensions, version) => {
     const target = records.find((v) => v.repo === argv.repo);
     const fields = {
         repo: argv.repo,
-        extensions: [...extensions.keys()],
-        version,
+        extensions: [
+            ...new Set([...extensions.keys(), ...(target ? target.extensions : [])]),
+        ],
     };
     if (target) {
         updateTableRecords({
@@ -28629,12 +28626,17 @@ const refreshRepoTablerecords = async (argv, result) => {
             return;
     }
     if (records?.length > 0) {
-        await deleteTableRecords({
-            apiKey: argv.apiKey,
-            baseId: argv.extBaseId,
-            tableId: argv.repo,
-            ids: records.map((v) => v.id),
-        });
+        const currentSimulateVersion = simulateVersion(getCurrentVersion(argv));
+        const ids = records
+            .filter((v) => simulateVersion(v.artifactVersion) === currentSimulateVersion)
+            .map((v) => v.id);
+        ids.length > 0 &&
+            (await deleteTableRecords({
+                apiKey: argv.apiKey,
+                baseId: argv.extBaseId,
+                tableId: argv.repo,
+                ids,
+            }));
     }
     await insertTableRecords({
         apiKey: argv.apiKey,
@@ -28692,7 +28694,7 @@ const insertTableRecords = ({ apiKey, baseId, tableId, records, }) => {
                 Authorization: `Bearer ${apiKey}`,
             },
         })
-            .then(() => console.log(`insert ${tableId} ${records?.map((v) => v.fields)}`))
+            .then(() => console.log(`insert ${baseId}/${tableId} ${data.length} items`))
             .catch((e) => console.error(e.response.data.error, e.response.config));
     }));
 };
@@ -28705,7 +28707,7 @@ const updateTableRecords = ({ apiKey, baseId, tableId, records, }) => {
                 Authorization: `Bearer ${apiKey}`,
             },
         })
-            .then(() => console.log(`update ${tableId} ${records?.map((v) => v.fields)}`))
+            .then(() => console.log(`update ${baseId}/${tableId} ${data.length} items`))
             .catch((e) => console.error(e.response.data.error, e.response.config));
     }));
 };
@@ -28719,6 +28721,7 @@ const deleteTableRecords = ({ apiKey, baseId, tableId, ids }) => {
                 Authorization: `Bearer ${apiKey}`,
             },
         })
+            .then(() => console.log(`delete ${baseId}/${tableId} ${records.length} items`))
             .catch((e) => console.error(e.response.data.error, e.response.config));
     }));
 };
@@ -28760,6 +28763,43 @@ const getCurrentVersion = (argv) => {
 };
 const omit = (obj, keys) => {
     return Object.fromEntries(Object.entries(obj).filter(([key]) => !keys.includes(key)));
+};
+const simulateVersion = (version) => {
+    const isAlpha = version.includes("-alpha");
+    const [major, minor] = version.split(".");
+    return `${major}.${minor}${isAlpha ? "-alpha" : ""}`;
+};
+const filterBy = (items = {}) => {
+    return Object.entries(items).filter(([key]) => key.startsWith("@kungfu-trader/"));
+};
+const getOriginYarnLock = async (argv, version) => {
+    const octokit = new rest_1.Octokit({
+        auth: argv.token,
+    });
+    const res = await octokit
+        .request("GET /repos/{owner}/{repo}/contents/{path}", {
+        owner: argv.owner,
+        repo: argv.repo,
+        path: "yarn.lock",
+        ref: `v${version}`,
+        headers: {
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    })
+        .catch(() => null);
+    if (res?.data?.content) {
+        return getYarnLockInfo(Buffer.from(res?.data?.content, "base64").toString("utf-8"));
+    }
+};
+const getYarnLockInfo = function (content) {
+    if (!content) {
+        return new Map();
+    }
+    const json = lockfile.parse(content);
+    return filterBy(json.object).reduce((acc, [key, value]) => {
+        acc.set("@" + key.split("@")[1], value.version);
+        return acc;
+    }, new Map());
 };
 
 
