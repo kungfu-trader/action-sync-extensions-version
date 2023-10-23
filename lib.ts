@@ -106,11 +106,14 @@ export const manualCheckConsumers = async (argv: Argv) => {
 };
 
 export const checkExtensions = async (argv: Argv) => {
-  const extensions: Map<string, string> = getYarnLockInfo(
-    fs.readFileSync(path.join(process.cwd(), "yarn.lock"), "utf8")
-  );
-  // const currentVersion = getCurrentVersion(argv);
-  // const extensions: any = await getOriginYarnLock(argv, currentVersion);
+  if (!argv.repo.startsWith("kungfu-trader")) {
+    return;
+  }
+  // const extensions: Map<string, string> = getYarnLockInfo(
+  //   fs.readFileSync(path.join(process.cwd(), "yarn.lock"), "utf8")
+  // );
+  const currentVersion = getCurrentVersion(argv);
+  const extensions: any = await getOriginYarnLock(argv, currentVersion);
   const result = [];
   for (const [name, version] of extensions) {
     const item = await getVersionList(argv, name, version);
