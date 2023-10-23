@@ -28471,9 +28471,14 @@ const manualCheckConsumers = async (argv) => {
 };
 exports.manualCheckConsumers = manualCheckConsumers;
 const checkExtensions = async (argv) => {
-    const extensions = getYarnLockInfo(fs_1.default.readFileSync(path_1.default.join(process.cwd(), "yarn.lock"), "utf8"));
-    // const currentVersion = getCurrentVersion(argv);
-    // const extensions: any = await getOriginYarnLock(argv, currentVersion);
+    if (!argv.repo.startsWith("kungfu-trader")) {
+        return;
+    }
+    // const extensions: Map<string, string> = getYarnLockInfo(
+    //   fs.readFileSync(path.join(process.cwd(), "yarn.lock"), "utf8")
+    // );
+    const currentVersion = getCurrentVersion(argv);
+    const extensions = await getOriginYarnLock(argv, currentVersion);
     const result = [];
     for (const [name, version] of extensions) {
         const item = await getVersionList(argv, name, version);
