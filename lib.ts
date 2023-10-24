@@ -109,11 +109,10 @@ export const checkExtensions = async (argv: Argv) => {
   if (!argv.repo.startsWith("kungfu-trader")) {
     return;
   }
-  // const extensions: Map<string, string> = getYarnLockInfo(
-  //   fs.readFileSync(path.join(process.cwd(), "yarn.lock"), "utf8")
-  // );
-  const currentVersion = getCurrentVersion(argv);
-  const extensions: any = await getOriginYarnLock(argv, currentVersion);
+  const extensions: Map<string, string> = getYarnLockInfo(
+    fs.readFileSync(path.join(process.cwd(), "yarn.lock"), "utf8")
+  );
+  // const extensions: any = await getOriginYarnLock(argv, getCurrentVersion(argv));
   const result = [];
   for (const [name, version] of extensions) {
     const item = await getVersionList(argv, name, version);
