@@ -28690,44 +28690,38 @@ const getTableRecords = async ({ apiKey, baseId, tableId, params = {}, }) => {
         : res.data;
 };
 const insertTableRecords = ({ apiKey, baseId, tableId, records, }) => {
-    return Promise.all((0, lodash_chunk_1.default)(records, 10).map((data) => {
-        axios_1.default
-            .post(`https://api.airtable.com/v0/${baseId}/${tableId}`, { records: data, typecast: true }, {
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${apiKey}`,
-            },
-        })
-            .then(() => console.log(`insert ${baseId}/${tableId} ${data.length} items`))
-            .catch((e) => console.error(e.response.data.error, e.response.config));
-    }));
+    return Promise.all((0, lodash_chunk_1.default)(records, 10).map((data) => axios_1.default
+        .post(`https://api.airtable.com/v0/${baseId}/${tableId}`, { records: data, typecast: true }, {
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+        },
+    })
+        .then(() => console.log(`insert ${baseId}/${tableId} ${data.length} items`))
+        .catch((e) => console.error(e.response.data.error, e.response.config))));
 };
 const updateTableRecords = ({ apiKey, baseId, tableId, records, }) => {
-    return Promise.all((0, lodash_chunk_1.default)(records, 10).map((data) => {
-        axios_1.default
-            .put(`https://api.airtable.com/v0/${baseId}/${tableId}`, { records: data, typecast: true }, {
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${apiKey}`,
-            },
-        })
-            .then(() => console.log(`update ${baseId}/${tableId} ${data.length} items`))
-            .catch((e) => console.error(e.response.data.error, e.response.config));
-    }));
+    return Promise.all((0, lodash_chunk_1.default)(records, 10).map((data) => axios_1.default
+        .put(`https://api.airtable.com/v0/${baseId}/${tableId}`, { records: data, typecast: true }, {
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+        },
+    })
+        .then(() => console.log(`update ${baseId}/${tableId} ${data.length} items`))
+        .catch((e) => console.error(e.response.data.error, e.response.config))));
 };
 const deleteTableRecords = ({ apiKey, baseId, tableId, ids }) => {
-    return Promise.all((0, lodash_chunk_1.default)(ids, 10).map((records) => {
-        axios_1.default
-            .delete(`https://api.airtable.com/v0/${baseId}/${tableId}`, {
-            params: { records },
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${apiKey}`,
-            },
-        })
-            .then(() => console.log(`delete ${baseId}/${tableId} ${records.length} items`))
-            .catch((e) => console.error(e.response.data.error, e.response.config));
-    }));
+    return Promise.all((0, lodash_chunk_1.default)(ids, 10).map((records) => axios_1.default
+        .delete(`https://api.airtable.com/v0/${baseId}/${tableId}`, {
+        params: { records },
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+        },
+    })
+        .then(() => console.log(`delete ${baseId}/${tableId} ${records.length} items`))
+        .catch((e) => console.error(e.response.data.error, e.response.config))));
 };
 const createTable = ({ apiKey, baseId, tableName }) => {
     return axios_1.default

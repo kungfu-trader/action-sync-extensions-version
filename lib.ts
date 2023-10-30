@@ -346,17 +346,17 @@ const getTableRecords = async ({
   }
   return res.offset
     ? [
-        ...res.data,
-        ...(await getTableRecords({
-          apiKey,
-          baseId,
-          tableId,
-          params: {
-            ...params,
-            offset: res.offset,
-          },
-        })),
-      ]
+      ...res.data,
+      ...(await getTableRecords({
+        apiKey,
+        baseId,
+        tableId,
+        params: {
+          ...params,
+          offset: res.offset,
+        },
+      })),
+    ]
     : res.data;
 };
 
@@ -367,7 +367,7 @@ const insertTableRecords = ({
   records,
 }: AirtableApi): Promise<void[]> => {
   return Promise.all(
-    chunk(records, 10).map((data) => {
+    chunk(records, 10).map((data) =>
       axios
         .post(
           `https://api.airtable.com/v0/${baseId}/${tableId}`,
@@ -382,8 +382,8 @@ const insertTableRecords = ({
         .then(() =>
           console.log(`insert ${baseId}/${tableId} ${data.length} items`)
         )
-        .catch((e) => console.error(e.response.data.error, e.response.config));
-    })
+        .catch((e) => console.error(e.response.data.error, e.response.config))
+    )
   );
 };
 
@@ -394,7 +394,7 @@ const updateTableRecords = ({
   records,
 }: AirtableApi) => {
   return Promise.all(
-    chunk(records, 10).map((data) => {
+    chunk(records, 10).map((data) =>
       axios
         .put(
           `https://api.airtable.com/v0/${baseId}/${tableId}`,
@@ -409,14 +409,14 @@ const updateTableRecords = ({
         .then(() =>
           console.log(`update ${baseId}/${tableId} ${data.length} items`)
         )
-        .catch((e) => console.error(e.response.data.error, e.response.config));
-    })
+        .catch((e) => console.error(e.response.data.error, e.response.config))
+    )
   );
 };
 
 const deleteTableRecords = ({ apiKey, baseId, tableId, ids }: AirtableApi) => {
   return Promise.all(
-    chunk(ids, 10).map((records) => {
+    chunk(ids, 10).map((records) =>
       axios
         .delete(`https://api.airtable.com/v0/${baseId}/${tableId}`, {
           params: { records },
@@ -428,8 +428,8 @@ const deleteTableRecords = ({ apiKey, baseId, tableId, ids }: AirtableApi) => {
         .then(() =>
           console.log(`delete ${baseId}/${tableId} ${records.length} items`)
         )
-        .catch((e) => console.error(e.response.data.error, e.response.config));
-    })
+        .catch((e) => console.error(e.response.data.error, e.response.config))
+    )
   );
 };
 
