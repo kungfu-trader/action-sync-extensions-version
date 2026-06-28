@@ -9,7 +9,7 @@ on:
 
 jobs:
   try:
-    uses: kungfu-trader/workflows/.github/workflows/.release-verify.yml@v1
+    uses: kungfu-systems/workflows/.github/workflows/.release-verify.yml@v1
     with:
       prebuild: false
     secrets:
@@ -17,7 +17,7 @@ jobs:
   
   verify:
     needs: try
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     steps:
       - name: report
         run: echo verified

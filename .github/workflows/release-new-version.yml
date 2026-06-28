@@ -9,7 +9,7 @@ on:
 
 jobs:
   release:
-    uses: kungfu-trader/workflows/.github/workflows/.release-new-version.yml@v1
+    uses: kungfu-systems/workflows/.github/workflows/.release-new-version.yml@v1
     with:
       publish-aws-ci: false
       publish-aws-user: false
